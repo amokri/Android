@@ -32,7 +32,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled =
-                false
+                true
             proguardFiles(
                 getDefaultProguardFile(
                     "proguard-android-optimize.txt"
@@ -43,12 +43,15 @@ android {
     }
     compileOptions {
         sourceCompatibility =
-            JavaVersion.VERSION_11
+            JavaVersion.VERSION_17
         targetCompatibility =
-            JavaVersion.VERSION_11
+            JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        viewBinding = true
     }
 }
 
@@ -68,4 +71,8 @@ dependencies {
 
     // For Islamic Calendar conversion
     implementation("com.github.msarhan:ummalqura-calendar:1.1.1")
+
+    // Retrofit for type-safe HTTP calls
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
 }
