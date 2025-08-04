@@ -31,6 +31,7 @@ android {
 
     buildTypes {
         release {
+            isShrinkResources = true
             isMinifyEnabled =
                 true
             proguardFiles(
