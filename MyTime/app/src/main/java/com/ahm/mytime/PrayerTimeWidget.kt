@@ -8,8 +8,8 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.icu.text.SimpleDateFormat
 import android.os.Build
-import android.provider.AlarmClock
 import android.provider.CalendarContract
+import android.text.Html
 import android.util.Log
 import android.widget.RemoteViews
 import java.util.*
@@ -86,16 +86,103 @@ private fun updatePrayerTimes(views: RemoteViews, prefs: SharedPreferences) {
         PrayerSlot("isha", "Isha", R.drawable.ic_isha, R.id.iv_isha_icon, R.id.tv_isha_name, R.id.tv_isha_time)
     )
 
-    prayerSlots.forEach { slot ->
+    val prayerKeys = prayerSlots.map { it.key }
+    val currentPrayerIndex = getCurrentPrayerIndex(prefs, prayerKeys)
+
+    prayerSlots.forEachIndexed { index, slot ->
         val dynamicKey = "${slot.key}_$todayDateKey"
         val rawTime24h = prefs.getString(dynamicKey, "--:--")
         val formattedTime12h = formatTime(rawTime24h, INPUT_TIME_FORMAT, OUTPUT_TIME_FORMAT)
 
         views.setImageViewResource(slot.iconViewId, slot.iconResId)
-        views.setTextViewText(slot.nameViewId, slot.displayName)
-        views.setTextViewText(slot.timeViewId, formattedTime12h)
+
+        if (index == currentPrayerIndex) {
+            // Apply bold style to the current prayer time
+            views.setTextViewText(slot.nameViewId, getBoldedText(slot.displayName))
+            views.setTextViewText(slot.timeViewId, getBoldedText(formattedTime12h))
+        } else {
+            // Apply normal style to other prayer times
+            views.setTextViewText(slot.nameViewId, slot.displayName)
+            views.setTextViewText(slot.timeViewId, formattedTime12h)
+        }
     }
 }
+
+/**
+ * Wraps the given text in <b> and <font> HTML tags to make it bold and yellow.
+ */
+private fun getBoldedText(text: String): CharSequence {
+    // A pleasant yellow color. You can change this hex code.
+    val yellowColor = "#77EB3B"
+    val styledText = "<font color='$yellowColor'><b>$text</b></font>"
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        Html.fromHtml(styledText, Html.FROM_HTML_MODE_LEGACY)
+    } else {
+        @Suppress("DEPRECATION")
+        Html.fromHtml(styledText)
+    }
+}
+
+/**
+ * Determines the index of the current prayer by comparing prayer times with the current system time.
+ * The "current" prayer is defined as the last prayer whose time has passed.
+ * Before Fajr, Isha is considered the current prayer.
+ */
+private fun getCurrentPrayerIndex(prefs: SharedPreferences, prayerKeys: List<String>): Int {
+    val todayDateKey = KEY_DATE_FORMAT.format(Date())
+    val now = Calendar.getInstance()
+
+    val prayerCalendars = prayerKeys.map { key ->
+        val dynamicKey = "${key}_$todayDateKey"
+        val timeString = prefs.getString(dynamicKey, null)
+        getCalendarForPrayerTime(timeString)
+    }
+
+    var currentPrayerIndex = -1
+
+    // Iterate backwards to find the last prayer that has passed.
+    // e.g., if it's 3 PM, the last prayer passed was Dhuhr.
+    for (i in prayerCalendars.indices.reversed()) {
+        val prayerTime = prayerCalendars[i]
+        if (prayerTime != null && !prayerTime.after(now)) {
+            currentPrayerIndex = i
+            break
+        }
+    }
+
+    // If no prayer has passed today (e.g., it's before Fajr),
+    // the current prayer is considered Isha (the last one in the list).
+    if (currentPrayerIndex == -1) {
+        return prayerKeys.size - 1
+    }
+
+    return currentPrayerIndex
+}
+
+/**
+ * Converts a time string (e.g., "13:15") into a Calendar object set to today's date.
+ */
+private fun getCalendarForPrayerTime(timeString: String?): Calendar? {
+    if (timeString.isNullOrBlank() || timeString == "--:--") return null
+    return try {
+        val parsedTime = INPUT_TIME_FORMAT.parse(timeString)
+        val prayerCal = Calendar.getInstance()
+        if (parsedTime != null) {
+            prayerCal.time = parsedTime
+        }
+
+        val todayCal = Calendar.getInstance()
+        todayCal.set(Calendar.HOUR_OF_DAY, prayerCal.get(Calendar.HOUR_OF_DAY))
+        todayCal.set(Calendar.MINUTE, prayerCal.get(Calendar.MINUTE))
+        todayCal.set(Calendar.SECOND, 0)
+        todayCal.set(Calendar.MILLISECOND, 0)
+        todayCal
+    } catch (e: Exception) {
+        Log.e("PrayerWidget", "Failed to parse time: $timeString", e)
+        null
+    }
+}
+
 
 private fun formatTime(
     timeString: String?,
@@ -139,7 +226,7 @@ private fun setAlarmClockClickListener(context: Context, views: RemoteViews) {
 //        views.setOnClickPendingIntent(R.id.prayer_times_layout, alarmPendingIntent)
 //    } else {
 //        Log.w("PrayerWidget", "No application found to handle ACTION_SHOW_ALARMS intent.")
-        setZTEAlarmClockClickListener(context, views)
+    setZTEAlarmClockClickListener(context, views)
 //    }
 }
 
