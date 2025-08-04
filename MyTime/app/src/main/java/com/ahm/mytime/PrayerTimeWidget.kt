@@ -71,6 +71,10 @@ private fun updatePrayerTimes(views: RemoteViews, prefs: android.content.SharedP
     val inputFormat = SimpleDateFormat("HH:mm", Locale.US)
     val outputFormat = SimpleDateFormat("h:mm a", Locale.US)
 
+    // Get the current date in the format "dd-MM-yyyy" to match the keys in SharedPreferences
+    val keyDateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+    val todayDateKey = keyDateFormat.format(Date())
+
     val prayerSlots = listOf(
         PrayerSlot("fajr", "Fajr", R.drawable.ic_fajr, R.id.iv_fajr_icon, R.id.tv_fajr_name, R.id.tv_fajr_time),
         PrayerSlot("sunrise", "Sunrise", R.drawable.ic_sunrise, R.id.iv_sunrise_icon, R.id.tv_sunrise_name, R.id.tv_sunrise_time),
@@ -81,7 +85,9 @@ private fun updatePrayerTimes(views: RemoteViews, prefs: android.content.SharedP
     )
 
     prayerSlots.forEach { slot ->
-        val rawTime24h = prefs.getString(slot.key, "--:--")
+        // Construct the dynamic key using the prayer name and today's date
+        val dynamicKey = "${slot.key}_$todayDateKey"
+        val rawTime24h = prefs.getString(dynamicKey, "--:--")
         val formattedTime12h = formatTime(rawTime24h, inputFormat, outputFormat)
 
         views.setImageViewResource(slot.iconViewId, slot.iconResId)
