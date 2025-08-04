@@ -63,6 +63,7 @@
             android:layout_marginBottom="8dp"
             android:textColor="@android:color/white"
             android:textSize="18sp"
+            android:textStyle="bold"
             tools:text="Sunday" />
 
         <TextView
@@ -73,6 +74,7 @@
             android:layout_marginBottom="8dp"
             android:textColor="@android:color/white"
             android:textSize="18sp"
+            android:textStyle="bold"
             tools:text="3 August 2025" />
 
         <!-- Islamic Date and Location -->
@@ -84,6 +86,7 @@
             android:layout_marginBottom="8dp"
             android:textColor="@android:color/white"
             android:textSize="18sp"
+            android:textStyle="bold"
             tools:text="8 Safar 1447" />
     </LinearLayout>
 

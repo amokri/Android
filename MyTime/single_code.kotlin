@@ -90,19 +90,15 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
         var hijriDateSuccess = false
 
         try {
-            // Clear old prayer times before fetching new ones to prevent stale data.
-            // A more sophisticated approach might be needed if other data is stored,
-            // but for this scope, clearing all is acceptable.
-            // prefsEditor.clear()
             prayerTimesSuccess = fetchAndSavePrayerTimes(prefsEditor)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching prayer times", e)
         }
 
         try {
-            hijriDateSuccess = fetchAndSaveHijriDate(prefsEditor)
+            hijriDateSuccess = fetchAndSaveMonthlyHijriDates(prefsEditor)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching Hijri date", e)
+            Log.e(TAG, "Error fetching Hijri dates", e)
         }
 
         prefsEditor.apply()
@@ -134,7 +130,6 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
             rows.forEach { row ->
                 val cells = row.select("td")
                 if (cells.size >= 8) {
-                    // The date in the first column is in "dd-MM-yyyy" format
                     val date = cells[0].select("h6").text()
 
                     if (date.isNotBlank()) {
@@ -145,7 +140,6 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
                         val maghrib = cells[6].text()
                         val isha = cells[7].text()
 
-                        // Store each prayer time with a unique key: "prayerName_dd-MM-yyyy"
                         editor.putString("fajr_$date", fajr)
                         editor.putString("sunrise_$date", sunrise)
                         editor.putString("dhuhr_$date", dhuhr)
@@ -170,23 +164,55 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
         }
     }
 
-
-    private fun fetchAndSaveHijriDate(editor: android.content.SharedPreferences.Editor): Boolean {
+    private fun fetchAndSaveMonthlyHijriDates(editor: SharedPreferences.Editor): Boolean {
         val hijriUrl = "https://timesprayer.com/en/hijri-date-in-malaysia.html"
-        Log.d(TAG, "Fetching Hijri date from: $hijriUrl")
+        Log.d(TAG, "Fetching monthly Hijri dates from: $hijriUrl")
 
-        val hijriDoc = Jsoup.connect(hijriUrl).get()
-        val hijriDateElement = hijriDoc.select("td[itemprop=text] strong").first()
+        try {
+            val doc = Jsoup.connect(hijriUrl).get()
+            val table = doc.select("div.prayertable.calendarTb table").firstOrNull()
+            val rows = table?.select("tbody tr")
 
-        return if (hijriDateElement != null) {
-            val rawHijriDate = hijriDateElement.text()
-            val cleanedHijriDate = rawHijriDate.replace(" Hijri", "").trim()
-            editor.putString("islamic_date", cleanedHijriDate)
-            Log.d(TAG, "Successfully parsed Hijri date: $cleanedHijriDate")
-            true
-        } else {
-            Log.e(TAG, "Could not find Hijri date element.")
-            false
+            if (rows.isNullOrEmpty()) {
+                Log.e(TAG, "Could not find Hijri date table or it has no rows.")
+                return false
+            }
+
+            val gregorianParseFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.ENGLISH)
+            val keyStorageFormat = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+
+            var rowsProcessed = 0
+            rows.forEach { row ->
+                val cells = row.select("td")
+                if (cells.size >= 2) {
+                    val gregorianDateStr = cells[0].text()
+                    val hijriDateStr = cells[1].select("strong").text()
+
+                    if (gregorianDateStr.isNotBlank() && hijriDateStr.isNotBlank()) {
+                        try {
+                            val parsedDate = gregorianParseFormat.parse(gregorianDateStr)
+                            if (parsedDate != null) {
+                                val dateKey = keyStorageFormat.format(parsedDate)
+                                editor.putString("islamic_date_$dateKey", hijriDateStr)
+                                rowsProcessed++
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Could not parse date: $gregorianDateStr", e)
+                        }
+                    }
+                }
+            }
+
+            return if (rowsProcessed > 0) {
+                Log.d(TAG, "Successfully parsed and stored Hijri dates for $rowsProcessed days.")
+                true
+            } else {
+                Log.e(TAG, "No valid Hijri date rows were processed.")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception while fetching or parsing monthly Hijri dates", e)
+            return false
         }
     }
 
@@ -217,12 +243,18 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.icu.text.SimpleDateFormat
 import android.os.Build
+import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.util.Log
 import android.widget.RemoteViews
 import java.util.*
+
+private val KEY_DATE_FORMAT = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+private val INPUT_TIME_FORMAT = SimpleDateFormat("HH:mm", Locale.US)
+private val OUTPUT_TIME_FORMAT = SimpleDateFormat("h:mm a", Locale.US)
 
 class PrayerTimeWidget : AppWidgetProvider() {
 
@@ -237,7 +269,6 @@ class PrayerTimeWidget : AppWidgetProvider() {
     }
 }
 
-// Data class for prayer slots (remains the same)
 data class PrayerSlot(
     val key: String,
     val displayName: String,
@@ -256,7 +287,7 @@ internal fun updateAppWidget(
     val prefs = context.getSharedPreferences(PrayerTimesFetchWorker.PRAYER_PREFS, Context.MODE_PRIVATE)
 
     updateDateInformation(views)
-    updateHijriDate(views, prefs)
+    updateHijriDate(context, views, prefs)
     updatePrayerTimes(views, prefs)
 
     setClickListeners(context, views)
@@ -273,19 +304,16 @@ private fun updateDateInformation(views: RemoteViews) {
     views.setTextViewText(R.id.tv_date, gregorianDate)
 }
 
-private fun updateHijriDate(views: RemoteViews, prefs: android.content.SharedPreferences) {
-    val fetchedHijriDate = prefs.getString("islamic_date", "...")
-    val islamicDateStr = "$fetchedHijriDate"
-    views.setTextViewText(R.id.tv_islamic_date_location, islamicDateStr)
+private fun updateHijriDate(context: Context, views: RemoteViews, prefs: SharedPreferences) {
+    val todayDateKey = KEY_DATE_FORMAT.format(Date())
+    val dynamicKey = "islamic_date_$todayDateKey"
+
+    val fetchedHijriDate = prefs.getString(dynamicKey, "...")
+    views.setTextViewText(R.id.tv_islamic_date_location, fetchedHijriDate)
 }
 
-private fun updatePrayerTimes(views: RemoteViews, prefs: android.content.SharedPreferences) {
-    val inputFormat = SimpleDateFormat("HH:mm", Locale.US)
-    val outputFormat = SimpleDateFormat("h:mm a", Locale.US)
-
-    // Get the current date in the format "dd-MM-yyyy" to match the keys in SharedPreferences
-    val keyDateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
-    val todayDateKey = keyDateFormat.format(Date())
+private fun updatePrayerTimes(views: RemoteViews, prefs: SharedPreferences) {
+    val todayDateKey = KEY_DATE_FORMAT.format(Date())
 
     val prayerSlots = listOf(
         PrayerSlot("fajr", "Fajr", R.drawable.ic_fajr, R.id.iv_fajr_icon, R.id.tv_fajr_name, R.id.tv_fajr_time),
@@ -297,10 +325,9 @@ private fun updatePrayerTimes(views: RemoteViews, prefs: android.content.SharedP
     )
 
     prayerSlots.forEach { slot ->
-        // Construct the dynamic key using the prayer name and today's date
         val dynamicKey = "${slot.key}_$todayDateKey"
         val rawTime24h = prefs.getString(dynamicKey, "--:--")
-        val formattedTime12h = formatTime(rawTime24h, inputFormat, outputFormat)
+        val formattedTime12h = formatTime(rawTime24h, INPUT_TIME_FORMAT, OUTPUT_TIME_FORMAT)
 
         views.setImageViewResource(slot.iconViewId, slot.iconResId)
         views.setTextViewText(slot.nameViewId, slot.displayName)
@@ -340,10 +367,30 @@ private fun setDateContainerClickListener(context: Context, views: RemoteViews) 
 }
 
 private fun setAlarmClockClickListener(context: Context, views: RemoteViews) {
+//    val alarmIntent = Intent(AlarmClock.ACTION_SHOW_ALARMS).apply {
+//        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+//    }
+//
+//    if (alarmIntent.resolveActivity(context.packageManager) != null) {
+//        val alarmPendingIntent = createPendingIntent(context, alarmIntent, requestCode = 1)
+//        views.setOnClickPendingIntent(R.id.clock_container, alarmPendingIntent)
+//        views.setOnClickPendingIntent(R.id.prayer_times_layout, alarmPendingIntent)
+//    } else {
+//        Log.w("PrayerWidget", "No application found to handle ACTION_SHOW_ALARMS intent.")
+        setZTEAlarmClockClickListener(context, views)
+//    }
+}
+
+private fun setZTEAlarmClockClickListener(context: Context, views: RemoteViews) {
     getLaunchAppPendingIntent(context, "zte.com.cn.alarmclock", requestCode = 1)?.let {
         views.setOnClickPendingIntent(R.id.clock_container, it)
         views.setOnClickPendingIntent(R.id.prayer_times_layout, it)
     }
+}
+
+private fun getLaunchAppPendingIntent(context: Context, packageName: String, requestCode: Int): PendingIntent? {
+    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return null
+    return createPendingIntent(context, launchIntent, requestCode)
 }
 
 private fun createPendingIntent(context: Context, intent: Intent, requestCode: Int): PendingIntent {
@@ -354,145 +401,4 @@ private fun createPendingIntent(context: Context, intent: Intent, requestCode: I
     }
     return PendingIntent.getActivity(context, requestCode, intent, flags)
 }
-
-private fun getLaunchAppPendingIntent(context: Context, packageName: String, requestCode: Int): PendingIntent? {
-    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return null
-    return createPendingIntent(context, launchIntent, requestCode)
-}
-
-// --- file: Color.kt ---
-package com.ahm.mytime.ui.theme
-
-import androidx.compose.ui.graphics.Color
-
-val Purple80 =
-    Color(
-        0xFFD0BCFF
-    )
-val PurpleGrey80 =
-    Color(
-        0xFFCCC2DC
-    )
-val Pink80 =
-    Color(
-        0xFFEFB8C8
-    )
-
-val Purple40 =
-    Color(
-        0xFF6650a4
-    )
-val PurpleGrey40 =
-    Color(
-        0xFF625b71
-    )
-val Pink40 =
-    Color(
-        0xFF7D5260
-    )
-
-// --- file: Theme.kt ---
-package com.ahm.mytime.ui.theme
-
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-
-private val DarkColorScheme =
-    darkColorScheme(
-        primary = Purple80,
-        secondary = PurpleGrey80,
-        tertiary = Pink80
-    )
-
-private val LightColorScheme =
-    lightColorScheme(
-        primary = Purple40,
-        secondary = PurpleGrey40,
-        tertiary = Pink40
-
-        /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-    )
-
-//@Composable
-//fun MyTimeTheme(
-//    darkTheme: Boolean = isSystemInDarkTheme(),
-//    // Dynamic color is available on Android 12+
-//    dynamicColor: Boolean = true,
-//    content: @Composable () -> Unit
-//) {
-//    val colorScheme =
-//        when {
-//            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-//                val context =
-//                    LocalContext.current
-//                if (darkTheme) dynamicDarkColorScheme(
-//                    context
-//                ) else dynamicLightColorScheme(
-//                    context
-//                )
-//            }
-//
-//            darkTheme -> DarkColorScheme
-//            else -> LightColorScheme
-//        }
-//
-//    MaterialTheme(
-//        colorScheme = colorScheme,
-//        typography = Typography,
-//        content = content
-//    )
-//}
-
-// --- file: Type.kt ---
-package com.ahm.mytime.ui.theme
-
-import androidx.compose.material3.Typography
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-
-// Set of Material typography styles to start with
-val Typography =
-    Typography(
-        bodyLarge = TextStyle(
-            fontFamily = FontFamily.Default,
-            fontWeight = FontWeight.Normal,
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
-            letterSpacing = 0.5.sp
-        )
-        /* Other default text styles to override
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    )
-    */
-    )
 
