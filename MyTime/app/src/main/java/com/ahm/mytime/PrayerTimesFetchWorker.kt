@@ -26,19 +26,15 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
         var hijriDateSuccess = false
 
         try {
-            // Clear old prayer times before fetching new ones to prevent stale data.
-            // A more sophisticated approach might be needed if other data is stored,
-            // but for this scope, clearing all is acceptable.
-            // prefsEditor.clear()
             prayerTimesSuccess = fetchAndSavePrayerTimes(prefsEditor)
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching prayer times", e)
         }
 
         try {
-            hijriDateSuccess = fetchAndSaveHijriDate(prefsEditor)
+            hijriDateSuccess = fetchAndSaveMonthlyHijriDates(prefsEditor)
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching Hijri date", e)
+            Log.e(TAG, "Error fetching Hijri dates", e)
         }
 
         prefsEditor.apply()
@@ -70,7 +66,6 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
             rows.forEach { row ->
                 val cells = row.select("td")
                 if (cells.size >= 8) {
-                    // The date in the first column is in "dd-MM-yyyy" format
                     val date = cells[0].select("h6").text()
 
                     if (date.isNotBlank()) {
@@ -81,7 +76,6 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
                         val maghrib = cells[6].text()
                         val isha = cells[7].text()
 
-                        // Store each prayer time with a unique key: "prayerName_dd-MM-yyyy"
                         editor.putString("fajr_$date", fajr)
                         editor.putString("sunrise_$date", sunrise)
                         editor.putString("dhuhr_$date", dhuhr)
@@ -106,23 +100,55 @@ class PrayerTimesFetchWorker(appContext: Context, workerParams: WorkerParameters
         }
     }
 
-
-    private fun fetchAndSaveHijriDate(editor: android.content.SharedPreferences.Editor): Boolean {
+    private fun fetchAndSaveMonthlyHijriDates(editor: SharedPreferences.Editor): Boolean {
         val hijriUrl = "https://timesprayer.com/en/hijri-date-in-malaysia.html"
-        Log.d(TAG, "Fetching Hijri date from: $hijriUrl")
+        Log.d(TAG, "Fetching monthly Hijri dates from: $hijriUrl")
 
-        val hijriDoc = Jsoup.connect(hijriUrl).get()
-        val hijriDateElement = hijriDoc.select("td[itemprop=text] strong").first()
+        try {
+            val doc = Jsoup.connect(hijriUrl).get()
+            val table = doc.select("div.prayertable.calendarTb table").firstOrNull()
+            val rows = table?.select("tbody tr")
 
-        return if (hijriDateElement != null) {
-            val rawHijriDate = hijriDateElement.text()
-            val cleanedHijriDate = rawHijriDate.replace(" Hijri", "").trim()
-            editor.putString("islamic_date", cleanedHijriDate)
-            Log.d(TAG, "Successfully parsed Hijri date: $cleanedHijriDate")
-            true
-        } else {
-            Log.e(TAG, "Could not find Hijri date element.")
-            false
+            if (rows.isNullOrEmpty()) {
+                Log.e(TAG, "Could not find Hijri date table or it has no rows.")
+                return false
+            }
+
+            val gregorianParseFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.ENGLISH)
+            val keyStorageFormat = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+
+            var rowsProcessed = 0
+            rows.forEach { row ->
+                val cells = row.select("td")
+                if (cells.size >= 2) {
+                    val gregorianDateStr = cells[0].text()
+                    val hijriDateStr = cells[1].select("strong").text()
+
+                    if (gregorianDateStr.isNotBlank() && hijriDateStr.isNotBlank()) {
+                        try {
+                            val parsedDate = gregorianParseFormat.parse(gregorianDateStr)
+                            if (parsedDate != null) {
+                                val dateKey = keyStorageFormat.format(parsedDate)
+                                editor.putString("islamic_date_$dateKey", hijriDateStr)
+                                rowsProcessed++
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Could not parse date: $gregorianDateStr", e)
+                        }
+                    }
+                }
+            }
+
+            return if (rowsProcessed > 0) {
+                Log.d(TAG, "Successfully parsed and stored Hijri dates for $rowsProcessed days.")
+                true
+            } else {
+                Log.e(TAG, "No valid Hijri date rows were processed.")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception while fetching or parsing monthly Hijri dates", e)
+            return false
         }
     }
 
