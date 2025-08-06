@@ -2,43 +2,32 @@ package com.ahm.mytime
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.widget.RemoteViews
 import androidx.appcompat.app.AppCompatActivity
 import androidx.work.*
 import java.util.concurrent.TimeUnit
-import android.app.Activity
-import android.appwidget.AppWidgetManager
-import android.content.Intent
-import android.view.View
-
+// Removed unused imports: Activity, AppWidgetManager, Intent, RemoteViews, View
 
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        private const val PRAYER_TIME_WORK_NAME = "PrayerTimeFetchWork"
-        private const val INITIAL_PRAYER_TIME_WORK_NAME = "InitialPrayerTimeFetch"
+        // Renamed from INITIAL_PRAYER_TIME_WORK_NAME for clarity
+        private const val DAILY_PRAYER_TIME_WORK_NAME = "DailyPrayerTimeFetchWork"
+        // Removed PRAYER_TIME_WORK_NAME as periodic work is removed
     }
 
     @SuppressLint(
-        "ResourceType"
+        "ResourceType" // This annotation might be related to R.layout.activity_main or other resources
     )
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-//        // Create a RemoteViews instance
-//        val views = RemoteViews(packageName, R.layout.widget_prayer_time)
-//        // Set the RemoteViews as the content view
-//        setContentView(views.viewId)
-
-        schedulePrayerTimeWorker()
+        scheduleDailyPrayerTimeWorker()
     }
 
-    private fun schedulePrayerTimeWorker() {
+    private fun scheduleDailyPrayerTimeWorker() {
         val constraints = createNetworkConstraints()
-
-        schedulePeriodicPrayerTimeWork(constraints)
-        scheduleInitialPrayerTimeWork(constraints)
+        scheduleOneTimePrayerTimeWork(constraints)
     }
 
     private fun createNetworkConstraints(): Constraints {
@@ -47,29 +36,17 @@ class MainActivity : AppCompatActivity() {
             .build()
     }
 
-    private fun schedulePeriodicPrayerTimeWork(constraints: Constraints) {
-        val periodicWorkRequest = PeriodicWorkRequestBuilder<PrayerTimesFetchWorker>(
-            repeatInterval = 24,
-            repeatIntervalTimeUnit = TimeUnit.HOURS
-        )
-            .setConstraints(constraints)
-            .build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            PRAYER_TIME_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            periodicWorkRequest
-        )
-    }
-
-    private fun scheduleInitialPrayerTimeWork(constraints: Constraints) {
+    // Renamed from scheduleInitialPrayerTimeWork
+    private fun scheduleOneTimePrayerTimeWork(constraints: Constraints) {
         val oneTimeWorkRequest = OneTimeWorkRequestBuilder<PrayerTimesFetchWorker>()
             .setConstraints(constraints)
+            // It's good practice to add a tag for cancellability or observation
+            .addTag(DAILY_PRAYER_TIME_WORK_NAME)
             .build()
 
         WorkManager.getInstance(this).enqueueUniqueWork(
-            INITIAL_PRAYER_TIME_WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            DAILY_PRAYER_TIME_WORK_NAME, // Use the new constant for unique work name
+            ExistingWorkPolicy.REPLACE, // Ensures work runs on app launch, replacing any existing scheduled work
             oneTimeWorkRequest
         )
     }
