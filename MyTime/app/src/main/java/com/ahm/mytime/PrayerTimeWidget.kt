@@ -14,9 +14,9 @@ import android.widget.RemoteViews
 import java.util.Date
 import java.util.Locale
 
-private val KEY_DATE_FORMAT = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
-private val INPUT_TIME_FORMAT = SimpleDateFormat("HH:mm", Locale.US)
-private val OUTPUT_TIME_FORMAT = SimpleDateFormat("h:mm a", Locale.US)
+internal val KEY_DATE_FORMAT = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+internal val INPUT_TIME_FORMAT = SimpleDateFormat("HH:mm", Locale.US)
+internal val OUTPUT_TIME_FORMAT = SimpleDateFormat("h:mm a", Locale.US)
 
 class PrayerTimeWidget : AppWidgetProvider() {
 
