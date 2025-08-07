@@ -24,17 +24,13 @@ class MyTimeApp : Application(), Configuration.Provider {
     }
 
     private fun schedulePrayerTimeFetcher() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
         val periodicWorkRequest = PeriodicWorkRequestBuilder<PrayerTimesFetchWorker>(1, TimeUnit.DAYS)
-            .setConstraints(constraints)
+            .setConstraints(createNetworkConstraints())
             .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "MonthlyPrayerTimeFetchWork",
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.REPLACE,
             periodicWorkRequest
         )
     }

@@ -1,528 +1,4 @@
-﻿File: app\src\main\AndroidManifest.xml
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <!-- Add permissions if needed for location services -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-
-    <application
-        android:name=".MyTimeApp"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.MyTime">
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <!-- Widget Provider -->
-        <receiver
-            android:name=".PrayerTimeWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/prayer_time_widget_info" />
-        </receiver>
-
-        <!-- Receiver to re-schedule alarm on boot -->
-        <receiver
-            android:name=".BootCompletedReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-    </application>
-
-</manifest>
-```
-
-File: app\build.gradle.kts
-```kts
-plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.ksp) // Add KSP plugin
-    alias(libs.plugins.hilt) // Add Hilt plugin
-}
-
-android {
-    namespace = "com.ahm.mytime"
-    compileSdk = 36
-
-    defaultConfig {
-        applicationId = "com.ahm.mytime"
-        minSdk = 33
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            isShrinkResources = true
-            isMinifyEnabled = true
-            proguardFiles(
-                    getDefaultProguardFile("proguard-android-optimize.txt"),
-                    "proguard-rules.pro"
-            )
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-    buildFeatures {
-        viewBinding = true
-    }
-}
-
-dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.activity)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.material3.android)
-
-    // For background data fetching
-    implementation(libs.androidx.work.runtime.ktx)
-
-    // For parsing HTML to get prayer times
-    implementation("org.jsoup:jsoup:1.17.2")
-
-    // For Islamic Calendar conversion
-    implementation("com.github.msarhan:ummalqura-calendar:1.1.1")
-
-    // Retrofit for type-safe HTTP calls
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-
-    // Room dependencies
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx) // Kotlin Extensions and Coroutines support for Room
-    implementation(libs.androidx.room.paging)
-    implementation(libs.androidx.hilt.common) // Add Room Paging integration
-    ksp(libs.androidx.room.compiler) // Room compiler
-
-    // Hilt dependencies
-    implementation(libs.dagger.hilt.android)
-    ksp(libs.dagger.hilt.compiler)
-
-    // Hilt-WorkManager Integration
-    implementation(libs.androidx.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
-}
-```
-
-File: gradle\libs.versions.toml
-```toml
-[versions]
-agp = "8.12.0"
-kotlin = "2.2.0"
-coreKtx = "1.16.0"
-junit = "4.13.2"
-junitVersion = "1.3.0"
-espressoCore = "3.7.0"
-appcompat = "1.7.1"
-room = "2.7.2"  # Room version
-ksp = "2.2.0-2.0.2" # Updated KSP version
-hilt = "2.57" # Hilt version
-material = "1.12.0"
-activity = "1.10.1"
-constraintlayout = "2.2.1"
-material3Android = "1.3.2"
-adhan = "2.0.1"
-retrofit = "3.0.0" # A very stable and widely used version
-kotlinxCoroutines = "1.10.2"
-work = "2.10.3"
-hiltCommon = "1.2.0"
-hiltWork = "1.2.0" # Add Hilt-Work version
-
-[libraries]
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
-androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
-androidx-material3-android = { group = "androidx.compose.material3", name = "material3-android", version.ref = "material3Android" }
-adhan = { group = "com.batoulapps.adhan2", name = "adhan", version.ref = "adhan" }
-
-# Coroutines
-kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
-
-# WorkManager for background tasks
-androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
-
-# Room for local database
-androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
-androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
-androidx-room-paging = { group = "androidx.room", name = "room-paging", version.ref = "room" }  # Add this line
-androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-
-# Retrofit for networking
-retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
-retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
-
-# Hilt
-dagger-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
-dagger-hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
-androidx-hilt-common = { group = "androidx.hilt", name = "hilt-common", version.ref = "hiltCommon" }
-androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" } # Add Hilt-Work
-androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" } # Add Hilt-Compiler for KSP
-
-[plugins]
-android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-
-# Add the Kapt plugin for Room's annotation processor
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" } # KSP plugin
-hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" } # Hilt plugin
-```
-
-File: app\src\main\res\layout\activity_main.xml
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingTop="40dp"
-    tools:context=".MainActivity">
-
-
-    <include
-        layout="@layout/widget_prayer_time"
-        android:id="@+id/clock"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <TextView
-        android:id="@+id/status_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/clock"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="Loading prayer times..." />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
-```
-
-File: app\src\main\res\layout\widget_prayer_time.xml
-```xml
-<!-- res/layout/widget_prayer_time.xml -->
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#000000">
-<!--    android:background="@android:color/transparent">-->
-
-    <TextView
-        android:gravity="center"
-        android:orientation="vertical"
-        android:layout_centerHorizontal="true"
-        android:id="@+id/tv_day"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="-4dp"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        tools:text="Sunday" />
-
-    <!-- Digital Clock -->
-    <LinearLayout
-        android:paddingBottom="-20dp"
-        android:layout_marginTop="-6dp"
-        android:layout_marginBottom="-20dp"
-        android:id="@+id/clock_container"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerHorizontal="true"
-        android:gravity="center"
-        android:orientation="vertical">
-
-        <TextClock
-            android:id="@+id/tv_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="-24dp"
-            android:format12Hour="hh:mm"
-            android:format24Hour="HH:mm"
-            android:textColor="#DDDDFF"
-            android:textSize="100sp"
-            android:textStyle="bold"
-            tools:text="09:40" />
-
-        <TextClock
-            android:id="@+id/tv_seconds"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="-18dp"
-            android:format12Hour="ss"
-            android:format24Hour="ss"
-            android:textColor="#DDDDFF"
-            android:textSize="100sp"
-            android:textStyle="bold"
-            tools:text="54" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/date_container"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/clock_container"
-        android:layout_centerHorizontal="true"
-        android:gravity="center"
-        android:orientation="horizontal">
-
-        <!-- Date Display -->
-<!--        <TextView-->
-<!--            android:layout_margin="2dp"-->
-<!--            android:id="@+id/tv_day"-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:layout_marginBottom="8dp"-->
-<!--            android:textColor="@android:color/white"-->
-<!--            android:textSize="18sp"-->
-<!--            android:textStyle="bold"-->
-<!--            tools:text="Sunday" />-->
-
-        <TextView
-            android:layout_margin="2dp"
-            android:id="@+id/tv_date"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:textColor="@android:color/white"
-            android:textSize="18sp"
-            tools:text="3 August 2025" />
-
-        <TextView
-            android:layout_margin="2dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@android:color/white"
-            android:layout_marginBottom="8dp"
-            android:layout_marginLeft="8dp"
-            android:layout_marginRight="8dp"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            tools:text=" " />
-
-        <!-- Islamic Date and Location -->
-        <TextView
-            android:layout_margin="2dp"
-            android:id="@+id/tv_islamic_date_location"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:textColor="@android:color/white"
-            android:textSize="18sp"
-            tools:text="8 Safar 1447" />
-    </LinearLayout>
-
-    <!-- Prayer Times Section -->
-    <LinearLayout
-        android:paddingBottom="-20dp"
-        android:layout_marginTop="-2dp"
-        android:layout_marginBottom="-20dp"
-        android:id="@+id/prayer_times_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/date_container"
-        android:baselineAligned="false"
-        android:orientation="horizontal">
-
-        <!-- Fajr -->
-        <LinearLayout
-            android:padding="4dp"
-            style="@style/PrayerItemContainer">
-
-            <ImageView
-                android:padding="6dp"
-                android:id="@+id/iv_fajr_icon"
-                style="@style/PrayerIcon"
-                tools:src="@drawable/ic_dhuhr" />
-
-            <TextView
-                android:layout_marginTop="-2dp"
-                android:id="@+id/tv_fajr_name"
-                style="@style/PrayerName"
-                android:text="Fajr" />
-
-            <TextView
-                android:layout_marginTop="4dp"
-                android:id="@+id/tv_fajr_time"
-                style="@style/PrayerTime"
-                tools:text="6:02AM" />
-        </LinearLayout>
-
-        <!-- Sunrise -->
-        <LinearLayout
-            android:padding="4dp"
-            style="@style/PrayerItemContainer">
-
-            <ImageView
-                android:padding="6dp"
-                android:id="@+id/iv_sunrise_icon"
-                style="@style/PrayerIcon"
-                tools:src="@drawable/ic_dhuhr" />
-
-            <TextView
-                android:layout_marginTop="-2dp"
-                android:id="@+id/tv_sunrise_name"
-                style="@style/PrayerName"
-                android:text="Sunrise" />
-
-            <TextView
-                android:layout_marginTop="4dp"
-                android:id="@+id/tv_sunrise_time"
-                style="@style/PrayerTime"
-                tools:text="7:12AM" />
-        </LinearLayout>
-
-        <!-- Dhuhr -->
-        <LinearLayout
-            android:padding="4dp"
-            style="@style/PrayerItemContainer">
-
-            <ImageView
-                android:padding="6dp"
-                android:id="@+id/iv_dhuhr_icon"
-                style="@style/PrayerIcon"
-                tools:src="@drawable/ic_dhuhr" />
-
-            <TextView
-                android:layout_marginTop="-2dp"
-                android:id="@+id/tv_dhuhr_name"
-                style="@style/PrayerName"
-                android:text="Dhuhr" />
-
-            <TextView
-                android:layout_marginTop="4dp"
-                android:id="@+id/tv_dhuhr_time"
-                style="@style/PrayerTime"
-                tools:text="1:26PM" />
-        </LinearLayout>
-
-        <!-- Asr -->
-        <LinearLayout
-            android:padding="4dp"
-            style="@style/PrayerItemContainer">
-
-            <ImageView
-                android:padding="6dp"
-                android:id="@+id/iv_asr_icon"
-                style="@style/PrayerIcon"
-                tools:src="@drawable/ic_dhuhr" />
-
-            <TextView
-                android:layout_marginTop="-2dp"
-                android:id="@+id/tv_asr_name"
-                style="@style/PrayerName"
-                android:text="Asr" />
-
-            <TextView
-                android:layout_marginTop="4dp"
-                android:id="@+id/tv_asr_time"
-                style="@style/PrayerTime"
-                tools:text="4:46PM" />
-        </LinearLayout>
-
-        <!-- Maghrib -->
-        <LinearLayout
-            android:padding="4dp"
-            style="@style/PrayerItemContainer">
-
-            <ImageView
-                android:padding="6dp"
-                android:id="@+id/iv_maghrib_icon"
-                style="@style/PrayerIcon"
-                tools:src="@drawable/ic_dhuhr" />
-
-            <TextView
-                android:layout_marginTop="-2dp"
-                android:id="@+id/tv_maghrib_name"
-                style="@style/PrayerName"
-                android:text="Maghrib" />
-
-            <TextView
-                android:layout_marginTop="4dp"
-                android:id="@+id/tv_maghrib_time"
-                style="@style/PrayerTime"
-                tools:text="7:35PM" />
-        </LinearLayout>
-
-        <!-- Isha -->
-        <LinearLayout
-            android:padding="4dp"
-            style="@style/PrayerItemContainer">
-
-            <ImageView
-                android:padding="6dp"
-                android:id="@+id/iv_isha_icon"
-                style="@style/PrayerIcon"
-                tools:src="@drawable/ic_dhuhr" />
-
-            <TextView
-                android:layout_marginTop="-2dp"
-                android:id="@+id/tv_isha_name"
-                style="@style/PrayerName"
-                android:text="Isha" />
-
-            <TextView
-                android:layout_marginTop="4dp"
-                android:id="@+id/tv_isha_time"
-                style="@style/PrayerTime"
-                tools:text="8:48PM" />
-        </LinearLayout>
-
-    </LinearLayout>
-
-</RelativeLayout>
-```
-
-File: app\src\main\java\com\ahm\mytime\BootCompletedReceiver.kt
+﻿File: app\src\main\java\com\ahm\mytime\BootCompletedReceiver.kt
 ```kotlin
 package com.ahm.mytime
 
@@ -547,23 +23,144 @@ File: app\src\main\java\com\ahm\mytime\MainActivity.kt
 ```kotlin
 package com.ahm.mytime
 
-import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.icu.text.SimpleDateFormat
 import android.os.Bundle
+import android.provider.CalendarContract
+import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.work.*
+import com.ahm.mytime.databinding.ActivityMainBinding
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityMainBinding
 
     companion object {
         private const val DAILY_PRAYER_TIME_WORK_NAME = "DailyPrayerTimeFetchWork"
     }
 
-    @SuppressLint("ResourceType")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
+        setupClickListeners()
         scheduleDailyPrayerTimeWorker()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateUI()
+    }
+
+    private fun setupClickListeners() {
+        // Calendar click listener
+        binding.clock.dateContainer.setOnClickListener {
+            val calendarIntent = Intent(Intent.ACTION_VIEW).apply {
+                data = CalendarContract.CONTENT_URI.buildUpon()
+                    .appendPath("time")
+                    .appendPath(System.currentTimeMillis().toString())
+                    .build()
+            }
+            try {
+                startActivity(calendarIntent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Could not open Calendar app", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Alarm clock click listener
+        val alarmClockListener = View.OnClickListener {
+            val packageName = "zte.com.cn.alarmclock" // As defined in the widget
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+            if (launchIntent != null) {
+                try {
+                    startActivity(launchIntent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Could not open Alarm Clock app", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Alarm Clock app not found", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        binding.clock.clockContainer.setOnClickListener(alarmClockListener)
+        binding.clock.prayerTimesLayout.setOnClickListener(alarmClockListener)
+    }
+
+    private fun updateUI() {
+        binding.statusText.visibility = View.VISIBLE
+        updateDateInformation()
+        updateHijriDate()
+        updatePrayerTimes()
+        binding.statusText.visibility = View.GONE
+    }
+
+    private fun updateDateInformation() {
+        val today = SimpleDateFormat("EEEE", Locale.getDefault()).format(Date())
+        binding.clock.tvDay.text = today
+
+        val gregorianDate = SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(Date())
+        binding.clock.tvDate.text = gregorianDate
+    }
+
+    private fun updateHijriDate() {
+        val prefs = getSharedPreferences(PrayerTimesFetchWorker.PRAYER_PREFS, Context.MODE_PRIVATE)
+        val todayDateKey = KEY_DATE_FORMAT.format(Date())
+        val dynamicKey = "islamic_date_$todayDateKey"
+        val fetchedHijriDate = prefs.getString(dynamicKey, "...")
+        binding.clock.tvIslamicDateLocation.text = fetchedHijriDate
+    }
+
+    private fun updatePrayerTimes() {
+        val prefs = getSharedPreferences(PrayerTimesFetchWorker.PRAYER_PREFS, Context.MODE_PRIVATE)
+        val todayDateKey = KEY_DATE_FORMAT.format(Date())
+
+        val prayerSlots = listOf(
+            PrayerSlot("fajr", "Fajr", R.drawable.ic_fajr, R.id.iv_fajr_icon, R.id.tv_fajr_name, R.id.tv_fajr_time),
+            PrayerSlot("sunrise", "Sunrise", R.drawable.ic_sunrise, R.id.iv_sunrise_icon, R.id.tv_sunrise_name, R.id.tv_sunrise_time),
+            PrayerSlot("dhuhr", "Dhuhr", R.drawable.ic_dhuhr, R.id.iv_dhuhr_icon, R.id.tv_dhuhr_name, R.id.tv_dhuhr_time),
+            PrayerSlot("asr", "Asr", R.drawable.ic_asr, R.id.iv_asr_icon, R.id.tv_asr_name, R.id.tv_asr_time),
+            PrayerSlot("maghrib", "Maghrib", R.drawable.ic_maghrib, R.id.iv_maghrib_icon, R.id.tv_maghrib_name, R.id.tv_maghrib_time),
+            PrayerSlot("isha", "Isha", R.drawable.ic_isha, R.id.iv_isha_icon, R.id.tv_isha_name, R.id.tv_isha_time)
+        )
+
+        prayerSlots.forEach { slot ->
+            val dynamicKey = "${slot.key}_$todayDateKey"
+            val rawTime24h = prefs.getString(dynamicKey, "--:--")
+            val formattedTime12h = formatTime(rawTime24h, INPUT_TIME_FORMAT, OUTPUT_TIME_FORMAT)
+
+            val (iconView, nameView, timeView) = when (slot.key) {
+                "fajr" -> Triple(binding.clock.ivFajrIcon, binding.clock.tvFajrName, binding.clock.tvFajrTime)
+                "sunrise" -> Triple(binding.clock.ivSunriseIcon, binding.clock.tvSunriseName, binding.clock.tvSunriseTime)
+                "dhuhr" -> Triple(binding.clock.ivDhuhrIcon, binding.clock.tvDhuhrName, binding.clock.tvDhuhrTime)
+                "asr" -> Triple(binding.clock.ivAsrIcon, binding.clock.tvAsrName, binding.clock.tvAsrTime)
+                "maghrib" -> Triple(binding.clock.ivMaghribIcon, binding.clock.tvMaghribName, binding.clock.tvMaghribTime)
+                "isha" -> Triple(binding.clock.ivIshaIcon, binding.clock.tvIshaName, binding.clock.tvIshaTime)
+                else -> Triple(null, null, null)
+            }
+
+            iconView?.setImageResource(slot.iconResId)
+            nameView?.text = slot.displayName
+            timeView?.text = formattedTime12h
+        }
+    }
+
+    private fun formatTime(
+        timeString: String?,
+        inputFormat: SimpleDateFormat,
+        outputFormat: SimpleDateFormat
+    ): String {
+        return try {
+            val date = inputFormat.parse(timeString ?: "--:--")
+            outputFormat.format(date ?: Date())
+        } catch (e: Exception) {
+            timeString ?: "--:--"
+        }
     }
 
     private fun scheduleDailyPrayerTimeWorker() {
@@ -898,9 +495,9 @@ import android.widget.RemoteViews
 import java.util.Date
 import java.util.Locale
 
-private val KEY_DATE_FORMAT = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
-private val INPUT_TIME_FORMAT = SimpleDateFormat("HH:mm", Locale.US)
-private val OUTPUT_TIME_FORMAT = SimpleDateFormat("h:mm a", Locale.US)
+internal val KEY_DATE_FORMAT = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+internal val INPUT_TIME_FORMAT = SimpleDateFormat("HH:mm", Locale.US)
+internal val OUTPUT_TIME_FORMAT = SimpleDateFormat("h:mm a", Locale.US)
 
 class PrayerTimeWidget : AppWidgetProvider() {
 

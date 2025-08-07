@@ -5,18 +5,11 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
-import android.icu.text.SimpleDateFormat
 import android.os.Build
 import android.provider.CalendarContract
 import android.util.Log
 import android.widget.RemoteViews
-import java.util.Date
-import java.util.Locale
-
-internal val KEY_DATE_FORMAT = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
-internal val INPUT_TIME_FORMAT = SimpleDateFormat("HH:mm", Locale.US)
-internal val OUTPUT_TIME_FORMAT = SimpleDateFormat("h:mm a", Locale.US)
+import java.util.*
 
 class PrayerTimeWidget : AppWidgetProvider() {
 
@@ -25,20 +18,17 @@ class PrayerTimeWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        // Re-schedule the midnight alarm upon widget update (e.g., device reboot or new widget)
+        MidnightAlarmScheduler.scheduleMidnightUpdate(context)
+
         appWidgetIds.forEach { appWidgetId ->
             updateAppWidget(context, appWidgetManager, appWidgetId)
         }
     }
 }
 
-data class PrayerSlot(
-    val key: String,
-    val displayName: String,
-    val iconResId: Int,
-    val iconViewId: Int,
-    val nameViewId: Int,
-    val timeViewId: Int
-)
+// A private data class to map prayer slot data to the specific views in this widget's layout
+private data class PrayerSlotViews(val iconViewId: Int, val nameViewId: Int, val timeViewId: Int)
 
 internal fun updateAppWidget(
     context: Context,
@@ -46,68 +36,39 @@ internal fun updateAppWidget(
     appWidgetId: Int
 ) {
     val views = RemoteViews(context.packageName, R.layout.widget_prayer_time)
-    val prefs = context.getSharedPreferences(PrayerTimesFetchWorker.PRAYER_PREFS, Context.MODE_PRIVATE)
+    val prefs = getPrefs(context)
 
-    updateDateInformation(views)
-    updateHijriDate(context, views, prefs)
-    updatePrayerTimes(views, prefs)
+    // Update date information
+    views.setTextViewText(R.id.tv_day, getTodayDayName())
+    views.setTextViewText(R.id.tv_date, getTodayGregorianDate())
+    views.setTextViewText(R.id.tv_islamic_date_location, getTodayHijriDate(prefs))
+
+    // Map shared prayer slot info to the specific views in this widget layout
+    val prayerViewMappings = mapOf(
+        "fajr" to PrayerSlotViews(R.id.iv_fajr_icon, R.id.tv_fajr_name, R.id.tv_fajr_time),
+        "sunrise" to PrayerSlotViews(R.id.iv_sunrise_icon, R.id.tv_sunrise_name, R.id.tv_sunrise_time),
+        "dhuhr" to PrayerSlotViews(R.id.iv_dhuhr_icon, R.id.tv_dhuhr_name, R.id.tv_dhuhr_time),
+        "asr" to PrayerSlotViews(R.id.iv_asr_icon, R.id.tv_asr_name, R.id.tv_asr_time),
+        "maghrib" to PrayerSlotViews(R.id.iv_maghrib_icon, R.id.tv_maghrib_name, R.id.tv_maghrib_time),
+        "isha" to PrayerSlotViews(R.id.iv_isha_icon, R.id.tv_isha_name, R.id.tv_isha_time)
+    )
+
+    // Update prayer times using the shared helper data and functions
+    prayerSlotsInfo.forEach { slotInfo ->
+        prayerViewMappings[slotInfo.key]?.let { viewIds ->
+            val rawTime24h = getPrayerTime(prefs, slotInfo.key)
+            val formattedTime12h = formatTime12h(rawTime24h)
+
+            views.setImageViewResource(viewIds.iconViewId, slotInfo.iconResId)
+            views.setTextViewText(viewIds.nameViewId, slotInfo.displayName)
+            views.setTextViewText(viewIds.timeViewId, formattedTime12h)
+        }
+    }
 
     setClickListeners(context, views)
 
     appWidgetManager.updateAppWidget(appWidgetId, views)
     Log.d("PrayerWidget", "Widget UI and click listeners updated for widgetId: $appWidgetId")
-}
-
-private fun updateDateInformation(views: RemoteViews) {
-    val today = SimpleDateFormat("EEEE", Locale.getDefault()).format(Date())
-    views.setTextViewText(R.id.tv_day, today)
-
-    val gregorianDate = SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(Date())
-    views.setTextViewText(R.id.tv_date, gregorianDate)
-}
-
-private fun updateHijriDate(context: Context, views: RemoteViews, prefs: SharedPreferences) {
-    val todayDateKey = KEY_DATE_FORMAT.format(Date())
-    val dynamicKey = "islamic_date_$todayDateKey"
-
-    val fetchedHijriDate = prefs.getString(dynamicKey, "...")
-    views.setTextViewText(R.id.tv_islamic_date_location, fetchedHijriDate)
-}
-
-private fun updatePrayerTimes(views: RemoteViews, prefs: SharedPreferences) {
-    val todayDateKey = KEY_DATE_FORMAT.format(Date())
-
-    val prayerSlots = listOf(
-        PrayerSlot("fajr", "Fajr", R.drawable.ic_fajr, R.id.iv_fajr_icon, R.id.tv_fajr_name, R.id.tv_fajr_time),
-        PrayerSlot("sunrise", "Sunrise", R.drawable.ic_sunrise, R.id.iv_sunrise_icon, R.id.tv_sunrise_name, R.id.tv_sunrise_time),
-        PrayerSlot("dhuhr", "Dhuhr", R.drawable.ic_dhuhr, R.id.iv_dhuhr_icon, R.id.tv_dhuhr_name, R.id.tv_dhuhr_time),
-        PrayerSlot("asr", "Asr", R.drawable.ic_asr, R.id.iv_asr_icon, R.id.tv_asr_name, R.id.tv_asr_time),
-        PrayerSlot("maghrib", "Maghrib", R.drawable.ic_maghrib, R.id.iv_maghrib_icon, R.id.tv_maghrib_name, R.id.tv_maghrib_time),
-        PrayerSlot("isha", "Isha", R.drawable.ic_isha, R.id.iv_isha_icon, R.id.tv_isha_name, R.id.tv_isha_time)
-    )
-
-    prayerSlots.forEach { slot ->
-        val dynamicKey = "${slot.key}_$todayDateKey"
-        val rawTime24h = prefs.getString(dynamicKey, "--:--")
-        val formattedTime12h = formatTime(rawTime24h, INPUT_TIME_FORMAT, OUTPUT_TIME_FORMAT)
-
-        views.setImageViewResource(slot.iconViewId, slot.iconResId)
-        views.setTextViewText(slot.nameViewId, slot.displayName)
-        views.setTextViewText(slot.timeViewId, formattedTime12h)
-    }
-}
-
-private fun formatTime(
-    timeString: String?,
-    inputFormat: SimpleDateFormat,
-    outputFormat: SimpleDateFormat
-): String {
-    return try {
-        val date = inputFormat.parse(timeString ?: "--:--")
-        outputFormat.format(date ?: Date())
-    } catch (e: Exception) {
-        timeString ?: "--:--"
-    }
 }
 
 private fun setClickListeners(context: Context, views: RemoteViews) {
