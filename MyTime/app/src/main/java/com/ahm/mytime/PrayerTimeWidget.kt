@@ -8,11 +8,11 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.icu.text.SimpleDateFormat
 import android.os.Build
-import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.util.Log
 import android.widget.RemoteViews
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 private val KEY_DATE_FORMAT = SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
 private val INPUT_TIME_FORMAT = SimpleDateFormat("HH:mm", Locale.US)
@@ -129,21 +129,6 @@ private fun setDateContainerClickListener(context: Context, views: RemoteViews) 
 }
 
 private fun setAlarmClockClickListener(context: Context, views: RemoteViews) {
-//    val alarmIntent = Intent(AlarmClock.ACTION_SHOW_ALARMS).apply {
-//        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//    }
-//
-//    if (alarmIntent.resolveActivity(context.packageManager) != null) {
-//        val alarmPendingIntent = createPendingIntent(context, alarmIntent, requestCode = 1)
-//        views.setOnClickPendingIntent(R.id.clock_container, alarmPendingIntent)
-//        views.setOnClickPendingIntent(R.id.prayer_times_layout, alarmPendingIntent)
-//    } else {
-//        Log.w("PrayerWidget", "No application found to handle ACTION_SHOW_ALARMS intent.")
-        setZTEAlarmClockClickListener(context, views)
-//    }
-}
-
-private fun setZTEAlarmClockClickListener(context: Context, views: RemoteViews) {
     getLaunchAppPendingIntent(context, "zte.com.cn.alarmclock", requestCode = 1)?.let {
         views.setOnClickPendingIntent(R.id.clock_container, it)
         views.setOnClickPendingIntent(R.id.prayer_times_layout, it)
