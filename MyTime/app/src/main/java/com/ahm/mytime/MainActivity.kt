@@ -32,6 +32,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
+        // Refresh button listener
+        binding.refreshButton.setOnClickListener {
+            Toast.makeText(this, "Refreshing data...", Toast.LENGTH_SHORT).show()
+            scheduleOneTimePrayerTimeWorker()
+        }
+
         // Calendar click listener
         binding.clock.dateContainer.setOnClickListener {
             val calendarIntent = Intent(Intent.ACTION_VIEW).apply {
