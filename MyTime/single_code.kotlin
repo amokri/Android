@@ -210,6 +210,318 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" } # KSP plugin
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" } # Hilt plugin
 ```
 
+File: app\src\main\res\layout\activity_main.xml
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingTop="40dp"
+    tools:context=".MainActivity">
+
+
+    <include
+        layout="@layout/widget_prayer_time"
+        android:id="@+id/clock"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/status_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/clock"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Loading prayer times..." />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+```
+
+File: app\src\main\res\layout\widget_prayer_time.xml
+```xml
+<!-- res/layout/widget_prayer_time.xml -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+<!--    android:background="@android:color/transparent">-->
+
+    <TextView
+        android:gravity="center"
+        android:orientation="vertical"
+        android:layout_centerHorizontal="true"
+        android:id="@+id/tv_day"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-4dp"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        tools:text="Sunday" />
+
+    <!-- Digital Clock -->
+    <LinearLayout
+        android:paddingBottom="-20dp"
+        android:layout_marginTop="-6dp"
+        android:layout_marginBottom="-20dp"
+        android:id="@+id/clock_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <TextClock
+            android:id="@+id/tv_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="-24dp"
+            android:format12Hour="hh:mm"
+            android:format24Hour="HH:mm"
+            android:textColor="#DDDDFF"
+            android:textSize="100sp"
+            android:textStyle="bold"
+            tools:text="09:40" />
+
+        <TextClock
+            android:id="@+id/tv_seconds"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="-18dp"
+            android:format12Hour="ss"
+            android:format24Hour="ss"
+            android:textColor="#DDDDFF"
+            android:textSize="100sp"
+            android:textStyle="bold"
+            tools:text="54" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/date_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/clock_container"
+        android:layout_centerHorizontal="true"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <!-- Date Display -->
+<!--        <TextView-->
+<!--            android:layout_margin="2dp"-->
+<!--            android:id="@+id/tv_day"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_marginBottom="8dp"-->
+<!--            android:textColor="@android:color/white"-->
+<!--            android:textSize="18sp"-->
+<!--            android:textStyle="bold"-->
+<!--            tools:text="Sunday" />-->
+
+        <TextView
+            android:layout_margin="2dp"
+            android:id="@+id/tv_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            tools:text="3 August 2025" />
+
+        <TextView
+            android:layout_margin="2dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="8dp"
+            android:layout_marginLeft="8dp"
+            android:layout_marginRight="8dp"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text=" " />
+
+        <!-- Islamic Date and Location -->
+        <TextView
+            android:layout_margin="2dp"
+            android:id="@+id/tv_islamic_date_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            tools:text="8 Safar 1447" />
+    </LinearLayout>
+
+    <!-- Prayer Times Section -->
+    <LinearLayout
+        android:paddingBottom="-20dp"
+        android:layout_marginTop="-2dp"
+        android:layout_marginBottom="-20dp"
+        android:id="@+id/prayer_times_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/date_container"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <!-- Fajr -->
+        <LinearLayout
+            android:padding="4dp"
+            style="@style/PrayerItemContainer">
+
+            <ImageView
+                android:padding="6dp"
+                android:id="@+id/iv_fajr_icon"
+                style="@style/PrayerIcon"
+                tools:src="@drawable/ic_dhuhr" />
+
+            <TextView
+                android:layout_marginTop="-2dp"
+                android:id="@+id/tv_fajr_name"
+                style="@style/PrayerName"
+                android:text="Fajr" />
+
+            <TextView
+                android:layout_marginTop="4dp"
+                android:id="@+id/tv_fajr_time"
+                style="@style/PrayerTime"
+                tools:text="6:02AM" />
+        </LinearLayout>
+
+        <!-- Sunrise -->
+        <LinearLayout
+            android:padding="4dp"
+            style="@style/PrayerItemContainer">
+
+            <ImageView
+                android:padding="6dp"
+                android:id="@+id/iv_sunrise_icon"
+                style="@style/PrayerIcon"
+                tools:src="@drawable/ic_dhuhr" />
+
+            <TextView
+                android:layout_marginTop="-2dp"
+                android:id="@+id/tv_sunrise_name"
+                style="@style/PrayerName"
+                android:text="Sunrise" />
+
+            <TextView
+                android:layout_marginTop="4dp"
+                android:id="@+id/tv_sunrise_time"
+                style="@style/PrayerTime"
+                tools:text="7:12AM" />
+        </LinearLayout>
+
+        <!-- Dhuhr -->
+        <LinearLayout
+            android:padding="4dp"
+            style="@style/PrayerItemContainer">
+
+            <ImageView
+                android:padding="6dp"
+                android:id="@+id/iv_dhuhr_icon"
+                style="@style/PrayerIcon"
+                tools:src="@drawable/ic_dhuhr" />
+
+            <TextView
+                android:layout_marginTop="-2dp"
+                android:id="@+id/tv_dhuhr_name"
+                style="@style/PrayerName"
+                android:text="Dhuhr" />
+
+            <TextView
+                android:layout_marginTop="4dp"
+                android:id="@+id/tv_dhuhr_time"
+                style="@style/PrayerTime"
+                tools:text="1:26PM" />
+        </LinearLayout>
+
+        <!-- Asr -->
+        <LinearLayout
+            android:padding="4dp"
+            style="@style/PrayerItemContainer">
+
+            <ImageView
+                android:padding="6dp"
+                android:id="@+id/iv_asr_icon"
+                style="@style/PrayerIcon"
+                tools:src="@drawable/ic_dhuhr" />
+
+            <TextView
+                android:layout_marginTop="-2dp"
+                android:id="@+id/tv_asr_name"
+                style="@style/PrayerName"
+                android:text="Asr" />
+
+            <TextView
+                android:layout_marginTop="4dp"
+                android:id="@+id/tv_asr_time"
+                style="@style/PrayerTime"
+                tools:text="4:46PM" />
+        </LinearLayout>
+
+        <!-- Maghrib -->
+        <LinearLayout
+            android:padding="4dp"
+            style="@style/PrayerItemContainer">
+
+            <ImageView
+                android:padding="6dp"
+                android:id="@+id/iv_maghrib_icon"
+                style="@style/PrayerIcon"
+                tools:src="@drawable/ic_dhuhr" />
+
+            <TextView
+                android:layout_marginTop="-2dp"
+                android:id="@+id/tv_maghrib_name"
+                style="@style/PrayerName"
+                android:text="Maghrib" />
+
+            <TextView
+                android:layout_marginTop="4dp"
+                android:id="@+id/tv_maghrib_time"
+                style="@style/PrayerTime"
+                tools:text="7:35PM" />
+        </LinearLayout>
+
+        <!-- Isha -->
+        <LinearLayout
+            android:padding="4dp"
+            style="@style/PrayerItemContainer">
+
+            <ImageView
+                android:padding="6dp"
+                android:id="@+id/iv_isha_icon"
+                style="@style/PrayerIcon"
+                tools:src="@drawable/ic_dhuhr" />
+
+            <TextView
+                android:layout_marginTop="-2dp"
+                android:id="@+id/tv_isha_name"
+                style="@style/PrayerName"
+                android:text="Isha" />
+
+            <TextView
+                android:layout_marginTop="4dp"
+                android:id="@+id/tv_isha_time"
+                style="@style/PrayerTime"
+                tools:text="8:48PM" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</RelativeLayout>
+```
+
 File: app\src\main\java\com\ahm\mytime\BootCompletedReceiver.kt
 ```kotlin
 package com.ahm.mytime
