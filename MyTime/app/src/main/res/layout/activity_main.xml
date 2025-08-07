@@ -20,11 +20,13 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <Button
+        android:gravity="center"
+        android:orientation="vertical"
         android:id="@+id/refresh_button"
         android:layout_margin="40dp"
         tools:text="Refresh"
         android:textColor="@android:color/holo_green_dark"
-        android:textSize="18sp"
+        android:textSize="24sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
